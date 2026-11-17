@@ -1,0 +1,36 @@
+# Freight Margin Guard. This file is a template: link the real apps with
+#   shopify app config link   (creates shopify.app.staging.toml / shopify.app.production.toml)
+# and keep their settings in step with this one.
+client_id = ""
+name = "Freight Margin Guard"
+application_url = "https://example.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
+
+[access_scopes]
+# Phase 1 is read only. Do not add any write_ scope here.
+scopes = "read_products,read_inventory,read_reports"
+
+[auth]
+redirect_urls = [ "https://example.com/auth/callback" ]
+
+[webhooks]
+api_version = "2026-10"
+
+  # Handled by: /app/routes/webhooks.app.uninstalled.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  # Handled by: /app/routes/webhooks.app.scopes_update.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+  # Handled by: /app/routes/webhooks.bulk_operations.finish.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "bulk_operations/finish" ]
+  uri = "/webhooks/bulk_operations/finish"

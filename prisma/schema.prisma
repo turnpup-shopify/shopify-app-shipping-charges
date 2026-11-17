@@ -1,0 +1,212 @@
+// Freight Margin Guard database. Postgres on Neon.
+//   DATABASE_URL           pooled connection, used by the running app
+//   DATABASE_URL_UNPOOLED  direct connection, used by `prisma migrate`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// Shopify sessions (offline and online tokens). Managed by
+// @shopify/shopify-app-session-storage-prisma.
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+
+  @@index([shop])
+}
+
+enum Role {
+  ANALYST
+  APPROVER
+  ADMIN
+}
+
+// App roles, mapped to Shopify staff user IDs. The first user to open the app
+// on a shop becomes ADMIN.
+model StaffMember {
+  shop      String
+  userId    String   @map("user_id")
+  name      String
+  email     String?
+  role      Role     @default(ANALYST)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@id([shop, userId])
+  @@map("staff_member")
+}
+
+// A new row on every settings change. The newest row per shop is current.
+model SettingsVersion {
+  id                 Int      @id @default(autoincrement())
+  shop               String
+  targetMargin       Decimal  @map("target_margin") @db.Decimal(6, 4)
+  flagThreshold      Decimal  @map("flag_threshold") @db.Decimal(6, 4)
+  criticalThreshold  Decimal  @map("critical_threshold") @db.Decimal(6, 4)
+  maxDiscount        Decimal  @map("max_discount") @db.Decimal(6, 4)
+  dimDivisor         Decimal  @map("dim_divisor") @db.Decimal(10, 2)
+  repriceMaxIncrease Decimal  @map("reprice_max_increase") @db.Decimal(6, 4)
+  surchargeMax       Decimal  @map("surcharge_max") @db.Decimal(10, 2)
+  overrideIsPerBox   Boolean  @default(false) @map("override_is_per_box")
+  tiers              Json
+  createdById        String   @map("created_by_id")
+  createdByName      String   @map("created_by_name")
+  createdAt          DateTime @default(now()) @map("created_at")
+  reason             String
+
+  scans Scan[]
+
+  @@index([shop, createdAt])
+  @@map("settings_version")
+}
+
+enum ScanStatus {
+  STARTING
+  RUNNING
+  PROCESSING
+  FINISHED
+  FAILED
+}
+
+enum ScanTrigger {
+  CRON
+  MANUAL
+}
+
+model Scan {
+  id                Int         @id @default(autoincrement())
+  shop              String
+  startedAt         DateTime    @default(now()) @map("started_at")
+  finishedAt        DateTime?   @map("finished_at")
+  trigger           ScanTrigger
+  triggeredById     String      @map("triggered_by_id")
+  triggeredByName   String      @map("triggered_by_name")
+  productsScanned   Int         @default(0) @map("products_scanned")
+  variantsScanned   Int         @default(0) @map("variants_scanned")
+  flagsFound        Int         @default(0) @map("flags_found")
+  settingsVersionId Int         @map("settings_version_id")
+  status            ScanStatus  @default(STARTING)
+  bulkOperationId   String?     @unique @map("bulk_operation_id")
+  resultUrl         String?     @map("result_url")
+  // Resume point: number of JSONL lines already processed. Lets a large
+  // result be handled across several function invocations.
+  linesProcessed    Int         @default(0) @map("lines_processed")
+  // Only one function invocation may process a scan at a time. A worker
+  // claims the scan by setting this into the future; a dead worker's lease
+  // simply runs out and the cron safety net picks the scan up again.
+  leaseUntil        DateTime?   @map("lease_until")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+  // Per-variant data health counts for this scan, written at the end.
+  dataHealth        Json?       @map("data_health")
+  // Estimated monthly dollars lost, in cents, written at the end.
+  monthlyLossCents  Int?        @map("monthly_loss_cents")
+  error             String?
+
+  settingsVersion SettingsVersion @relation(fields: [settingsVersionId], references: [id])
+  flags           Flag[]
+  issues          DataIssue[]
+
+  @@index([shop, startedAt])
+  @@map("scan")
+}
+
+enum Severity {
+  FLAGGED
+  CRITICAL
+}
+
+model Flag {
+  id                  Int      @id @default(autoincrement())
+  scanId              Int      @map("scan_id")
+  productId           String   @map("product_id")
+  variantId           String   @map("variant_id")
+  productTitle        String   @map("product_title")
+  variantTitle        String?  @map("variant_title")
+  imageUrl            String?  @map("image_url")
+  tier                String
+  // Every input used, plus the receipt lines, so the math can be shown later
+  // exactly as it was at scan time.
+  snapshot            Json
+  priceCents          Int      @map("price_cents")
+  unitCostCents       Int      @map("unit_cost_cents")
+  freightCents        Int      @map("freight_cents")
+  landedCostCents     Int      @map("landed_cost_cents")
+  marginPct           Decimal  @map("margin_pct") @db.Decimal(10, 6)
+  marginAtDiscountPct Decimal  @map("margin_at_discount_pct") @db.Decimal(10, 6)
+  severity            Severity
+  suggestedFix        String   @map("suggested_fix")
+  excludeFromDiscounts Boolean @map("exclude_from_discounts")
+  suggestedValueCents Int?     @map("suggested_value_cents")
+  unitsSold30d        Int?     @map("units_sold_30d")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  scan Scan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@unique([scanId, variantId])
+  @@index([scanId, severity])
+  @@index([productId])
+  @@map("flag")
+}
+
+// Variants missing inputs, per scan. Feeds the Data health screen.
+model DataIssue {
+  id           Int      @id @default(autoincrement())
+  scanId       Int      @map("scan_id")
+  productId    String   @map("product_id")
+  variantId    String   @map("variant_id")
+  productTitle String   @map("product_title")
+  variantTitle String?  @map("variant_title")
+  missing      String[]
+  hasMap       Boolean  @map("has_map")
+
+  scan Scan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@unique([scanId, variantId])
+  @@map("data_issue")
+}
+
+// Append only. The app has no update or delete code paths for this table, and
+// the migration adds a database trigger that rejects UPDATE and DELETE.
+model AuditLog {
+  id        BigInt   @id @default(autoincrement())
+  shop      String
+  at        DateTime @default(now())
+  actorId   String   @map("actor_id")
+  actorName String   @map("actor_name")
+  eventType String   @map("event_type")
+  productId String?  @map("product_id")
+  before    Json?
+  after     Json?
+  inputs    Json?
+  reason    String?
+
+  @@index([shop, at])
+  @@index([shop, productId])
+  @@index([shop, actorId])
+  @@index([shop, eventType])
+  @@map("audit_log")
+}
+
+// Phase 2 will add `proposal` and `change` tables here, linked to flag and
+// audit_log by id. Nothing in Phase 1 depends on them.
