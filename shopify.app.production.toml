@@ -1,0 +1,40 @@
+# Freight Margin Guard, production. Linked with `shopify app config link`.
+# Keep scopes and webhooks in step with shopify.app.toml.
+# Deploy with: shopify app deploy --config production
+client_id = "f954dca18b539d8cd4e96cc652ee6e24"
+name = "Freight Margin Guard"
+application_url = "https://shopify-app-shipping-charges-turnpups-projects.vercel.app"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = false
+include_config_on_deploy = true
+
+[access_scopes]
+# Phase 1 is read only. Do not add any write_ scope here.
+scopes = "read_products,read_inventory,read_reports"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://shopify-app-shipping-charges-turnpups-projects.vercel.app/auth/callback"
+]
+
+[webhooks]
+api_version = "2026-10"
+
+  # Handled by: /app/routes/webhooks.app.uninstalled.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  # Handled by: /app/routes/webhooks.app.scopes_update.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+  # Handled by: /app/routes/webhooks.bulk_operations.finish.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "bulk_operations/finish" ]
+  uri = "/webhooks/bulk_operations/finish"
