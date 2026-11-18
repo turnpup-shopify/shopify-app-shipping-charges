@@ -14,7 +14,12 @@ const shopify = shopifyApp({
   scopes: process.env.SCOPES?.split(","),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
-  sessionStorage: new PrismaSessionStorage(prisma),
+  // More retries than the default (2 × 5s): a cold function's first database
+  // connection can be slow, and running out of retries crashes the function.
+  sessionStorage: new PrismaSessionStorage(prisma, {
+    connectionRetries: 6,
+    connectionRetryIntervalMs: 2000,
+  }),
   // One store, app created in the store's own organization.
   distribution: AppDistribution.SingleMerchant,
   // Staff requests get an online token, so every log row has a real Shopify
