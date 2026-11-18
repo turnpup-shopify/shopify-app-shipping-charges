@@ -9,7 +9,8 @@ export interface DailyInput {
   shop: string;
   appUrl: (path: string) => string;
   priceList: CheckResult;
-  shipping: { changed: boolean; drift: Drift } | { error: string };
+  /** `notify`: true when this state needs attention and hasn't been emailed yet. */
+  shipping: { notify: boolean; drift: Drift } | { error: string };
 }
 
 const LIST_LIMIT = 15;
@@ -43,7 +44,7 @@ export function buildDailyEmail(input: DailyInput): Email | null {
       lines: [sh.error],
       link: { label: "Open shipping profiles", href: input.appUrl("/app/shipping") },
     });
-  } else if (sh.changed) {
+  } else if (sh.notify) {
     const d = sh.drift;
     const lines: string[] = [];
     const list = (label: string, items: DriftItem[]) => {
@@ -86,7 +87,7 @@ export function buildDailyEmail(input: DailyInput): Email | null {
         `<div style="white-space:pre-wrap">${esc(s.lines.join("\n"))}</div>` +
         (s.link ? `<p><a href="${esc(s.link.href)}">${esc(s.link.label)}</a></p>` : ""),
     ),
-    `<p style="color:#666;font-size:12px">Store: ${esc(input.shop)}. Sent by Freight Margin Guard's daily check. You only get this email when something changed.</p>`,
+    `<p style="color:#666;font-size:12px">Store: ${esc(input.shop)}. Sent by Freight Margin Guard's daily check. You only get this email when there's something new.</p>`,
     `</div>`,
   ].join("");
 
