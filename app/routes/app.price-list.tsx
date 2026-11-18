@@ -10,9 +10,6 @@ import { formatDateTime, formatMoney } from "../lib/format";
 import { checkPriceList, priceListUrl, savePriceListUrl } from "../lib/price-list/price-list.server";
 import { KEEP_VERSIONS, PriceListUrlError } from "../lib/price-list/source";
 
-// Downloading and storing ~3,000 rows can take a while on a cold start.
-export const config = { maxDuration: 120 };
-
 const PAGE_SIZE = 100;
 const SHIPPING_CLASSES = ["Small Parcel", "Oversize", "Motor Freight"];
 

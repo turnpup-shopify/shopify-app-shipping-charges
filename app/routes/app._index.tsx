@@ -16,8 +16,6 @@ import {
 import { Explain } from "../components/Explain";
 import { formatDateTime, formatMoney } from "../lib/format";
 
-export const config = { maxDuration: 300 };
-
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { shop } = await requireStaff(request);
 

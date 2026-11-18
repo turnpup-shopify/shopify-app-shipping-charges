@@ -182,3 +182,11 @@ the stored versions, and import it only when it changed. Each import is a versio
 kept (typed columns for item number, prices, MAP and shipping, the rest in `data`). The last six
 versions are kept. It writes only to the app's own database, so Phase 1 stays read only. Showing
 the data is all it does for now; MAP checks against Shopify come later.
+
+**31. Screens must not export `config`.** On Vercel, a route that exports `config` (for example
+`maxDuration`) is built into its own server bundle. React Router's route discovery (`/__manifest`)
+runs in the main bundle and can't see routes in other bundles, so clicking an app link to such a
+screen showed "404 Not Found" (the Dashboard and the Uttermost price list both did). Only API and
+webhook routes, which the screens never link to, export `config`. `vercel.json` sets `"fluid": true`,
+which gives every function 300 seconds by default, so screens still have time for slow work.
+`app/routes.test.ts` enforces this.
