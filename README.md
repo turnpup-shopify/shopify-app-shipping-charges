@@ -5,7 +5,7 @@ and shows the math in plain words.
 
 **Phase 1 is read only, with one exception.** The app's scopes are `read_products`, `read_inventory`,
 `read_reports` and `write_shipping`. `write_shipping` is used only by the Shipping profiles screen, to
-move products in or out of the Freight shipping profile when someone clicks a button.
+move products in or out of the "US Motor Freight" shipping profile when someone clicks a button.
 Nothing in the code writes to products, prices, tags, shipping or channels. Suggested fixes are
 suggestions only.
 
@@ -22,7 +22,7 @@ suggestions only.
 | Activity log | Newest first. Filter by person, product, event and date. Export to CSV |
 | Settings | Every number in the freight model. Admin only, a reason is required, and it shows who changed each setting last. Also team roles |
 | Data health | Missing metafield definitions, and variants missing cost, dimensions, price or MAP |
-| Shipping profiles | Compares each product's Shipping Method with the Freight shipping profile. Lists what's out of step, flags gaps in the Freight rates, and has one-click **Move to Freight** / **Move out of Freight** buttons |
+| Shipping profiles | Products whose Shipping Method is Motor Freight, or that are tagged `motorfreight`, belong in the US Motor Freight shipping profile. Lists what's out of step, flags gaps in that profile's rates, and has one-click move-in / move-out buttons |
 | Uttermost price list | The latest Uttermost price list from Dropbox: search and filter every item, see past versions, **Check for new version**. Admins set the Dropbox file link |
 
 Every number can be clicked to show how it was worked out. The UI is built only from Polaris web
@@ -70,6 +70,7 @@ See [`.env.example`](.env.example).
 | `NOTIFY_EMAIL` | Who gets the daily email, comma separated |
 | `NOTIFY_FROM` | Optional sender. Default `onboarding@resend.dev`, which only delivers to the Resend account's own address |
 | `SHOPIFY_APP_HANDLE` | Optional, default `freight-margin-guard`. Used for links in emails |
+| `FREIGHT_PROFILE_ID` | Optional. The freight shipping profile's ID (e.g. `89594986703`). Without it the app looks for the profile named "US Motor Freight" |
 | `SCAN_TIME_BUDGET_MS` | Optional, default `240000`. Keep it about 60s under the 300s function limit |
 
 ## Local setup

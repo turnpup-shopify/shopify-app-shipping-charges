@@ -206,3 +206,10 @@ the owner's request, after the first bulk move of 438 variants into the Freight 
 - Variants of Oversize or Motor Freight products marked "not a physical product" are reported, not
   moved: Shopify can't put them in a profile and charges them no shipping.
 - The recipient is the `NOTIFY_EMAIL` env var, so no address is in the code.
+
+**33. Only Motor Freight goes in the freight profile.** Changed 2026-11-18 on the owner's
+instruction. The profile was renamed in Shopify to **US Motor Freight**. A product belongs in it
+when its Shipping Method metafield is `Motor Freight` **or** it has the tag `motorfreight` (any
+case). `Oversize` no longer counts: those products go back to the General profile. The app now
+finds the profile by `FREIGHT_PROFILE_ID` when set, otherwise by the name "US Motor Freight", and
+compares variants by profile ID, so a future rename doesn't break the check.

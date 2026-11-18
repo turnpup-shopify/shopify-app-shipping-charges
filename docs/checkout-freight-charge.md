@@ -1,5 +1,11 @@
 # Checkout freight charge
 
+> **Update 2026-11-18: Motor Freight only.** The freight profile is now called **US Motor Freight**,
+> and only products whose Shipping Method is `Motor Freight` **or** that are tagged `motorfreight`
+> belong in it. `Oversize` products use the General profile like everything else. Where the text
+> below says "Oversize or Motor Freight" or "Freight profile", read "Motor Freight" and
+> "US Motor Freight". See DECISIONS #33.
+
 Status: approved 2026-11-17. Native shipping profiles, with amounts edited by hand in Shopify admin
 (not in the app). Amounts and thresholds not yet set. Docs checked 2026-11-17.
 

@@ -14,6 +14,7 @@ import {
   needsAttention,
   type Drift,
   type DriftItem,
+  type FreightProfile,
   type RateDefinition,
   type VariantRow,
 } from "./drift";
@@ -36,6 +37,7 @@ const VARIANTS_QUERY = `#graphql
           id
           title
           status
+          tags
           shippingMethod: metafield(namespace: "custom", key: "shipping_method") { value }
         }
       }
@@ -90,7 +92,7 @@ interface VariantNode {
   title: string;
   inventoryItem: { requiresShipping: boolean } | null;
   deliveryProfile: { id: string; name: string } | null;
-  product: { id: string; title: string; status: string; shippingMethod: { value: string } | null };
+  product: { id: string; title: string; status: string; tags: string[]; shippingMethod: { value: string } | null };
 }
 
 async function readVariants(admin: AdminClient): Promise<VariantRow[]> {
@@ -108,6 +110,7 @@ async function readVariants(admin: AdminClient): Promise<VariantRow[]> {
         productTitle: n.product.title,
         status: n.product.status,
         shippingMethod: n.product.shippingMethod?.value?.trim() || null,
+        tags: n.product.tags ?? [],
         requiresShipping: n.inventoryItem?.requiresShipping ?? true,
         profileId: n.deliveryProfile?.id ?? null,
         profileName: n.deliveryProfile?.name ?? null,
@@ -137,9 +140,16 @@ interface ProfileNode {
   }>;
 }
 
-async function readFreightProfile(admin: AdminClient): Promise<{ id: string; rates: RateDefinition[] } | null> {
+/**
+ * The freight profile: the one whose ID is FREIGHT_PROFILE_ID if that's set,
+ * otherwise the one named FREIGHT_PROFILE_NAME. Matching by ID survives renames.
+ */
+async function readFreightProfile(admin: AdminClient): Promise<FreightProfile | null> {
   const data = await gql<{ deliveryProfiles: { nodes: ProfileNode[] } }>(admin, PROFILES_QUERY);
-  const profile = data.deliveryProfiles.nodes.find((p) => p.name === FREIGHT_PROFILE_NAME);
+  const wantId = process.env.FREIGHT_PROFILE_ID?.trim();
+  const profile = wantId
+    ? data.deliveryProfiles.nodes.find((p) => p.id === wantId || p.id.endsWith(`/${wantId}`))
+    : data.deliveryProfiles.nodes.find((p) => p.name === FREIGHT_PROFILE_NAME);
   if (!profile) return null;
   const rates: RateDefinition[] = [];
   for (const g of profile.profileLocationGroups) {
@@ -158,7 +168,7 @@ async function readFreightProfile(admin: AdminClient): Promise<{ id: string; rat
       }
     }
   }
-  return { id: profile.id, rates };
+  return { id: profile.id, name: profile.name, rates };
 }
 
 export interface CheckOutcome {
@@ -180,7 +190,7 @@ export async function runShippingCheck(
 ): Promise<CheckOutcome> {
   const client = admin ?? (await unauthenticated.admin(shop)).admin;
   const [rows, freight] = await Promise.all([readVariants(client), readFreightProfile(client)]);
-  const drift = computeDrift(rows, freight?.rates ?? null);
+  const drift = computeDrift(rows, freight);
 
   const previous = await prisma.shippingCheck.findFirst({ where: { shop }, orderBy: { checkedAt: "desc" } });
   if (previous && previous.fingerprint === drift.fingerprint) {
@@ -233,7 +243,7 @@ export type MoveKind = "add" | "remove";
 export async function moveFreightVariants(shop: string, actor: Actor, admin: AdminClient, kind: MoveKind) {
   const before = await runShippingCheck(shop, "MANUAL", actor, admin);
   const profileId = before.check.freightProfileId;
-  if (!profileId) throw new Error(`There is no shipping profile named "${FREIGHT_PROFILE_NAME}".`);
+  if (!profileId) throw new Error(`Couldn't find the freight shipping profile ("${FREIGHT_PROFILE_NAME}" or FREIGHT_PROFILE_ID).`);
   const items = kind === "add" ? before.drift.toAdd : before.drift.toRemove;
   if (items.length === 0) return { moved: 0, after: before };
 
@@ -255,7 +265,7 @@ export async function moveFreightVariants(shop: string, actor: Actor, admin: Adm
     actor,
     eventType: kind === "add" ? EVENT_TYPES.shippingMovedToFreight : EVENT_TYPES.shippingRemovedFromFreight,
     before: { profiles: Object.fromEntries(items.map((i) => [i.variantId, i.profileName])) },
-    after: { profile: kind === "add" ? FREIGHT_PROFILE_NAME : "default profile", count: items.length },
+    after: { profile: kind === "add" ? (before.drift.counts.profileName ?? FREIGHT_PROFILE_NAME) : "default profile", count: items.length },
     inputs: { variantIds: ids, titles: items.map((i) => i.title) },
   });
 

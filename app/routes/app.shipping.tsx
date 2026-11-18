@@ -26,7 +26,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     if (intent === "add" || intent === "remove") {
       if (!canMove(staff.role)) return { ok: false as const, message: "Only Admins and Approvers can move products." };
       const { moved } = await moveFreightVariants(shop, actor, admin, intent);
-      const where = intent === "add" ? "into Freight" : "out of Freight";
+      const where = intent === "add" ? "into the freight profile" : "out of the freight profile";
       return { ok: true as const, message: moved ? `Moved ${moved} variants ${where}.` : "Nothing to move; it's already in step." };
     }
     return { ok: false as const, message: "Unknown action." };
@@ -64,9 +64,11 @@ export default function Shipping() {
 
       <s-section heading="How this works">
         <s-paragraph>
-          Products whose <s-text type="strong">Shipping Method</s-text> is Oversize or Motor Freight belong in the Freight
-          shipping profile, which charges the freight fee at checkout. Every morning the app compares the two and emails
-          you only when something changed. The buttons below move products only when you click them.
+          A product belongs in the <s-text type="strong">US Motor Freight</s-text> shipping profile when its{" "}
+          <s-text type="strong">Shipping Method</s-text> is Motor Freight or it’s tagged{" "}
+          <s-text type="strong">motorfreight</s-text>. Everything else, including Oversize, uses the other profiles.
+          Every morning the app compares this with Shopify and emails you only when there’s something new. The buttons
+          below move products only when you click them.
         </s-paragraph>
       </s-section>
 
@@ -76,7 +78,7 @@ export default function Shipping() {
         </s-section>
       ) : (
         <>
-          <s-section heading="Summary">
+          <s-section heading={`Summary: ${check.counts.profileName ?? "freight profile not found"}`}>
             <s-stack gap="small-200">
               <s-text color="subdued">
                 Last change found {formatDateTime(check.checkedAt)} ({check.trigger === "CRON" ? "daily check" : check.triggeredByName}).
@@ -85,57 +87,58 @@ export default function Shipping() {
               <s-paragraph>
                 {check.counts.variants.toLocaleString("en-US")} variants: {Object.entries(check.counts.byMethod)
                   .map(([k, v]) => `${k} ${v.toLocaleString("en-US")}`)
-                  .join(", ")}. {check.counts.inFreight.toLocaleString("en-US")} are in Freight.
+                  .join(", ")}. {(check.counts.belongInFreight ?? 0).toLocaleString("en-US")} belong in{" "}
+                {check.counts.profileName ?? "the freight profile"}; {check.counts.inFreight.toLocaleString("en-US")} are in it now.
               </s-paragraph>
             </s-stack>
           </s-section>
 
           {check.rateWarnings.length ? (
-            <s-banner tone="critical" heading="Freight rates have a gap">
+            <s-banner tone="critical" heading="Freight profile problem">
               <s-unordered-list>
                 {check.rateWarnings.map((w) => (
                   <s-list-item key={w}>{w}</s-list-item>
                 ))}
               </s-unordered-list>
-              <s-paragraph>Fix this in Shopify: Settings → Shipping and delivery → Freight.</s-paragraph>
+              <s-paragraph>Fix this in Shopify: Settings → Shipping and delivery → {check.counts.profileName ?? "the freight profile"}.</s-paragraph>
             </s-banner>
           ) : null}
 
           <ItemSection
-            heading="Tagged for freight but not in the Freight profile"
-            empty="Every Oversize and Motor Freight product is in Freight."
+            heading="Should be in the freight profile but isn’t"
+            empty="Every Motor Freight product is in the freight profile."
             items={check.toAdd}
             action={
               canMove && check.toAdd.length ? (
                 <s-button variant="primary" onClick={() => submit("add")} {...loading("add")} {...(busy ? { disabled: true } : {})}>
-                  Move {check.toAdd.length} to Freight
+                  Move {check.toAdd.length} into {check.counts.profileName ?? "freight"}
                 </s-button>
               ) : null
             }
           />
           <ItemSection
-            heading="In the Freight profile but not tagged for freight"
-            empty="Nothing in Freight is missing a freight tag."
+            heading="In the freight profile but shouldn’t be"
+            empty="Everything in the freight profile is Motor Freight."
             items={check.toRemove}
-            note="Removing sends them back to the General profile. If they should pay freight, set their Shipping Method instead."
+            note="Moving them out sends them back to the General profile. If one should pay freight, set its Shipping Method to Motor Freight or tag it motorfreight instead."
             action={
               canMove && check.toRemove.length ? (
                 <s-button onClick={() => submit("remove")} {...loading("remove")} {...(busy ? { disabled: true } : {})}>
-                  Move {check.toRemove.length} out of Freight
+                  Move {check.toRemove.length} out of {check.counts.profileName ?? "freight"}
                 </s-button>
               ) : null
             }
           />
           {check.notPhysical.length ? (
             <ItemSection
-              heading="Tagged for freight but marked “not a physical product”"
+              heading="Motor Freight but marked “not a physical product”"
               items={check.notPhysical}
               note="Shopify charges no shipping for these and can't put them in any profile. In Shopify, open each product and tick “This is a physical product”, then click Check now."
             />
           ) : null}
           {check.protectedProfile.length ? (
             <ItemSection
-              heading="Tagged for freight but in Shopify Collective"
+              heading="Motor Freight but in Shopify Collective"
               items={check.protectedProfile}
               note="Shopify Collective manages these, so the app leaves them alone."
             />
@@ -185,6 +188,7 @@ function ItemSection({
         <s-table-header-row>
           <s-table-header>Product</s-table-header>
           <s-table-header>Shipping Method</s-table-header>
+          <s-table-header>motorfreight tag</s-table-header>
           <s-table-header>Profile now</s-table-header>
           <s-table-header>Shopify</s-table-header>
         </s-table-header-row>
@@ -193,6 +197,7 @@ function ItemSection({
             <s-table-row key={i.variantId}>
               <s-table-cell>{i.title}</s-table-cell>
               <s-table-cell>{i.shippingMethod ?? "Not set"}</s-table-cell>
+              <s-table-cell>{i.freightTag ? "Yes" : ""}</s-table-cell>
               <s-table-cell>{i.profileName ?? "None"}</s-table-cell>
               <s-table-cell>
                 <s-link href={adminProductUrl(i.productId)} target="_blank">

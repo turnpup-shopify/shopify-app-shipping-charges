@@ -53,10 +53,11 @@ export function buildDailyEmail(input: DailyInput): Email | null {
       for (const i of items.slice(0, LIST_LIMIT)) lines.push(`  • ${i.title}${i.shippingMethod ? ` (${i.shippingMethod})` : ""}`);
       if (items.length > LIST_LIMIT) lines.push(`  • …and ${items.length - LIST_LIMIT} more`);
     };
-    list("Tagged Oversize or Motor Freight but not in the Freight profile", d.toAdd);
-    list("In the Freight profile but not tagged Oversize or Motor Freight", d.toRemove);
-    list("Tagged for freight but marked as not a physical product (ships with no charge)", d.notPhysical);
-    list("Tagged for freight but in Shopify Collective (left alone)", d.protectedProfile);
+    const profile = d.counts.profileName ?? "the freight profile";
+    list(`Should be in ${profile} but isn't`, d.toAdd);
+    list(`In ${profile} but shouldn't be`, d.toRemove);
+    list("Motor Freight but marked as not a physical product (ships with no charge)", d.notPhysical);
+    list("Motor Freight but in Shopify Collective (left alone)", d.protectedProfile);
     for (const w of d.rateWarnings) lines.push(`Rate problem: ${w}`);
     if (lines.length) {
       sections.push({
@@ -87,7 +88,7 @@ export function buildDailyEmail(input: DailyInput): Email | null {
         `<div style="white-space:pre-wrap">${esc(s.lines.join("\n"))}</div>` +
         (s.link ? `<p><a href="${esc(s.link.href)}">${esc(s.link.label)}</a></p>` : ""),
     ),
-    `<p style="color:#666;font-size:12px">Store: ${esc(input.shop)}. Sent by Freight Margin Guard's daily check. You only get this email when there's something new.</p>`,
+    `<p style="color:#666;font-size:12px">Store: ${esc(input.shop)}. Sent by Freight Margin Guard's daily check. You only get this email when there's something new. A product belongs in the freight profile when its Shipping Method is Motor Freight or it's tagged motorfreight.</p>`,
     `</div>`,
   ].join("");
 

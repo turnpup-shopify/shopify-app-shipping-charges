@@ -1,12 +1,20 @@
 /**
- * Compares products' Shipping Method metafield (custom.shipping_method) with
- * which shipping profile their variants are in. Pure: no Shopify, no database.
+ * Compares which products should be in the freight shipping profile with
+ * which profile their variants are actually in. Pure: no Shopify, no database.
+ *
+ * A product belongs in the freight profile when its Shipping Method metafield
+ * (custom.shipping_method) is "Motor Freight" OR it has the tag "motorfreight".
+ * Everything else (including Oversize) belongs elsewhere. Changed 2026-11-18:
+ * Oversize used to count too.
  */
 import { createHash } from "node:crypto";
 
-/** Shipping Method values whose products belong in the Freight profile. */
-export const FREIGHT_METHODS = ["Oversize", "Motor Freight"] as const;
-export const FREIGHT_PROFILE_NAME = "Freight";
+/** Shipping Method values whose products belong in the freight profile. */
+export const FREIGHT_METHODS = ["Motor Freight"] as const;
+/** Product tags (case-insensitive) whose products belong in the freight profile. */
+export const FREIGHT_TAGS = ["motorfreight"] as const;
+/** Default name of the freight profile; the profile is found by ID when FREIGHT_PROFILE_ID is set. */
+export const FREIGHT_PROFILE_NAME = "US Motor Freight";
 /** Profiles the app never moves products out of (Shopify Collective manages its own). */
 export const PROTECTED_PROFILES = ["Shopify Collective"];
 
@@ -17,9 +25,17 @@ export interface VariantRow {
   productTitle: string;
   status: string;
   shippingMethod: string | null;
+  /** Product tags. */
+  tags: string[];
   requiresShipping: boolean;
   profileId: string | null;
   profileName: string | null;
+}
+
+export interface FreightProfile {
+  id: string;
+  name: string;
+  rates: RateDefinition[];
 }
 
 export interface DriftItem {
@@ -27,6 +43,8 @@ export interface DriftItem {
   productId: string;
   title: string;
   shippingMethod: string | null;
+  /** True when the product has a freight tag (e.g. "motorfreight"). */
+  freightTag: boolean;
   profileName: string | null;
 }
 
@@ -47,14 +65,18 @@ export interface Drift {
     variants: number;
     byMethod: Record<string, number>;
     inFreight: number;
+    /** Variants whose product is tagged motorfreight or is Motor Freight. */
+    belongInFreight: number;
+    /** Name of the freight profile at check time, or null if not found. */
+    profileName: string | null;
   };
-  /** Tagged Oversize/Motor Freight, ships, not in Freight. */
+  /** Belongs in freight, ships, not in the freight profile. */
   toAdd: DriftItem[];
-  /** In Freight but not tagged Oversize/Motor Freight. */
+  /** In the freight profile but doesn't belong there. */
   toRemove: DriftItem[];
-  /** Tagged Oversize/Motor Freight but "not a physical product", so no profile applies. */
+  /** Belongs in freight but "not a physical product", so no profile applies. */
   notPhysical: DriftItem[];
-  /** Tagged Oversize/Motor Freight but in a profile the app won't touch. */
+  /** Belongs in freight but in a profile the app won't touch. */
   protectedProfile: DriftItem[];
   /** Plain-language problems with the Freight profile's rates. */
   rateWarnings: string[];
@@ -63,30 +85,43 @@ export interface Drift {
 }
 
 const isFreightMethod = (m: string | null) => m != null && (FREIGHT_METHODS as readonly string[]).includes(m);
+export const hasFreightTag = (tags: string[]) =>
+  tags.some((t) => (FREIGHT_TAGS as readonly string[]).includes(t.trim().toLowerCase()));
+/** True when a product belongs in the freight profile. */
+export const belongsInFreight = (v: Pick<VariantRow, "shippingMethod" | "tags">) =>
+  isFreightMethod(v.shippingMethod) || hasFreightTag(v.tags);
 
 const item = (v: VariantRow): DriftItem => ({
   variantId: v.variantId,
   productId: v.productId,
   title: v.variantTitle && v.variantTitle !== "Default Title" ? `${v.productTitle} – ${v.variantTitle}` : v.productTitle,
   shippingMethod: v.shippingMethod,
+  freightTag: hasFreightTag(v.tags),
   profileName: v.profileName,
 });
 
 const byTitle = (a: DriftItem, b: DriftItem) => a.title.localeCompare(b.title) || a.variantId.localeCompare(b.variantId);
 
-export function computeDrift(rows: VariantRow[], freightRates: RateDefinition[] | null): Drift {
+/**
+ * `profile` is the freight profile (found by ID or name), or null if the store
+ * has none. Variants are matched to it by profile ID, so renaming the profile
+ * in Shopify doesn't break the check.
+ */
+export function computeDrift(rows: VariantRow[], profile: FreightProfile | null): Drift {
   const toAdd: DriftItem[] = [];
   const toRemove: DriftItem[] = [];
   const notPhysical: DriftItem[] = [];
   const protectedProfile: DriftItem[] = [];
   const byMethod: Record<string, number> = {};
   let inFreight = 0;
+  let belongInFreight = 0;
 
   for (const v of rows) {
     const method = v.shippingMethod ?? "Not set";
     byMethod[method] = (byMethod[method] ?? 0) + 1;
-    const freight = isFreightMethod(v.shippingMethod);
-    const inFreightProfile = v.profileName === FREIGHT_PROFILE_NAME;
+    const freight = belongsInFreight(v);
+    if (freight) belongInFreight++;
+    const inFreightProfile = profile != null && v.profileId === profile.id;
     if (inFreightProfile) inFreight++;
 
     if (freight) {
@@ -101,18 +136,23 @@ export function computeDrift(rows: VariantRow[], freightRates: RateDefinition[] 
     }
   }
 
-  const rateWarnings = freightRates == null ? [`There is no shipping profile named "${FREIGHT_PROFILE_NAME}".`] : checkRates(freightRates);
+  const rateWarnings =
+    profile == null
+      ? [`There is no shipping profile named "${FREIGHT_PROFILE_NAME}" (or with the ID in FREIGHT_PROFILE_ID).`]
+      : checkRates(profile.rates, profile.name);
 
   // Fingerprint the state that matters: every variant's tag, profile and
   // shipping flag, plus the rate warnings. Same fingerprint = nothing changed.
   const hash = createHash("sha256");
   for (const v of [...rows].sort((a, b) => a.variantId.localeCompare(b.variantId))) {
-    hash.update(`${v.variantId}|${v.shippingMethod ?? ""}|${v.profileName ?? ""}|${v.requiresShipping ? 1 : 0}|${v.status}\n`);
+    hash.update(
+      `${v.variantId}|${v.shippingMethod ?? ""}|${hasFreightTag(v.tags) ? 1 : 0}|${v.profileId ?? ""}|${v.requiresShipping ? 1 : 0}|${v.status}\n`,
+    );
   }
   hash.update(rateWarnings.join("\n"));
 
   return {
-    counts: { variants: rows.length, byMethod, inFreight },
+    counts: { variants: rows.length, byMethod, inFreight, belongInFreight, profileName: profile?.name ?? null },
     toAdd: toAdd.sort(byTitle),
     toRemove: toRemove.sort(byTitle),
     notPhysical: notPhysical.sort(byTitle),
@@ -123,12 +163,12 @@ export function computeDrift(rows: VariantRow[], freightRates: RateDefinition[] 
 }
 
 /**
- * Finds order-total gaps in the Freight profile's price-based rates. A cart
+ * Finds order-total gaps in the freight profile's price-based rates. A cart
  * whose Freight items total falls in a gap gets no shipping option at all.
  */
-export function checkRates(rates: RateDefinition[]): string[] {
+export function checkRates(rates: RateDefinition[], profileName = FREIGHT_PROFILE_NAME): string[] {
   const active = rates.filter((r) => r.active);
-  if (active.length === 0) return ["The Freight profile has no active rates, so Freight products can't be shipped."];
+  if (active.length === 0) return [`${profileName} has no active rates, so its products can't be shipped.`];
 
   const ranges: Array<[number, number]> = [];
   for (const r of active) {
@@ -144,14 +184,14 @@ export function checkRates(rates: RateDefinition[]): string[] {
   const warnings: string[] = [];
   const fmt = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   let covered = 0;
-  if (ranges[0][0] > 0.01) warnings.push(`Freight has no rate for orders under ${fmt(ranges[0][0])}.`);
+  if (ranges[0][0] > 0.01) warnings.push(`${profileName} has no rate for orders under ${fmt(ranges[0][0])}.`);
   covered = ranges[0][1];
   for (const [min, max] of ranges.slice(1)) {
-    if (min - covered > 0.011) warnings.push(`Freight has no rate for orders between ${fmt(covered)} and ${fmt(min)}.`);
+    if (min - covered > 0.011) warnings.push(`${profileName} has no rate for orders between ${fmt(covered)} and ${fmt(min)}.`);
     covered = Math.max(covered, max);
   }
   if (covered !== Infinity) {
-    warnings.push(`Freight has no rate for orders over ${fmt(covered)}, so those carts can't check out.`);
+    warnings.push(`${profileName} has no rate for orders over ${fmt(covered)}, so those carts can't check out.`);
   }
   return warnings;
 }
