@@ -91,7 +91,7 @@ export const UNITS_SOLD_QUERY = `#graphql
   }`;
 
 export const UNITS_SOLD_SHOPIFYQL =
-  "FROM sales SHOW net_items_sold GROUP BY product_variant_id DURING last_30_days LIMIT 10000";
+  "FROM sales SHOW net_items_sold GROUP BY product_variant_id SINCE -30d UNTIL today LIMIT 10000";
 
 /** One variant, same fields as the bulk query. Used by the product detail screen. */
 export const VARIANT_DETAIL_QUERY = `#graphql
