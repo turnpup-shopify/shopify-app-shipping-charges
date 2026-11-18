@@ -8,7 +8,7 @@ staging and once for production.
 1. Create a private repo, for example `freight-margin-guard`, and push this folder to `main`.
 2. Create a `staging` branch from `main` and push it.
 
-## 2. Neon and Vercel (both)
+## 2. Database and Vercel (both)
 
 Create two Vercel projects from the same repo. See DECISIONS.md #3 for why it's two.
 
@@ -23,8 +23,8 @@ For each project:
 1. Vercel → Add New → Project → import the repo. The framework is detected as React Router.
 2. Settings → Git → set **Production Branch** as in the table.
 3. Settings → Domains → add the domain from the table.
-4. Storage (Marketplace) → **Neon** → create a database for this project. Vercel adds
-   `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct) for you. Use a separate Neon
+4. Storage (Marketplace) → **Prisma Postgres** → create a database for this project. Vercel adds
+   `DATABASE_URL_POOLED` (pooled) and `DATABASE_URL` (direct) for you. Use a separate
    database or branch for each project.
 5. Settings → Environment Variables (Production environment), add:
    - `SHOPIFY_API_KEY` and `SHOPIFY_API_SECRET`: from step 3 below

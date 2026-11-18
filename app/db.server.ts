@@ -5,8 +5,8 @@ declare global {
   var prismaGlobal: PrismaClient | undefined;
 }
 
-// One client per function instance. On Vercel, DATABASE_URL is Neon's pooled
-// connection string, so many instances can share the database safely.
+// One client per function instance. The client connects with DATABASE_URL_POOLED
+// (see prisma/schema.prisma), so many instances can share the database safely.
 const prisma = global.prismaGlobal ?? new PrismaClient();
 global.prismaGlobal = prisma;
 

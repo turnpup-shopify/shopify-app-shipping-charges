@@ -59,8 +59,8 @@ See [`.env.example`](.env.example).
 | `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET` | The app's Client ID and secret in the Dev Dashboard |
 | `SHOPIFY_APP_URL` | The environment's fixed domain, `https://…`, with no trailing slash |
 | `SCOPES` | `read_products,read_inventory,read_reports` |
-| `DATABASE_URL` | Neon **pooled** connection string. The app uses it at runtime. Added by the Vercel Neon integration |
-| `DATABASE_URL_UNPOOLED` | Neon **direct** connection string. `prisma migrate` uses it. Added by the integration |
+| `DATABASE_URL_POOLED` | Prisma Postgres **pooled** connection string. The app uses it at runtime. Added by the Vercel Prisma Postgres integration |
+| `DATABASE_URL` | Prisma Postgres **direct** connection string. `prisma migrate` uses it. Added by the integration |
 | `CRON_SECRET` | A long random string. Vercel Cron sends it automatically; it also protects `/api/scan/continue` |
 | `SCAN_TIME_BUDGET_MS` | Optional, default `240000`. Keep it about 60s under the 300s function limit |
 
@@ -76,7 +76,7 @@ npm install
 cp .env.example .env
 ```
 
-Fill in `.env`. Use a Neon dev branch for the two `DATABASE_URL` values. Then:
+Fill in `.env`. Use a separate dev database (not production) for `DATABASE_URL_POOLED` and `DATABASE_URL`. Then:
 
 ```bash
 npx prisma migrate deploy

@@ -25,7 +25,7 @@ In code this is `AppDistribution.SingleMerchant`.
 production deployments, so a `staging` branch preview would never run the nightly scan. Each
 environment gets its own Vercel project: `freight-margin-guard-staging` uses `staging` as its
 production branch, and `freight-margin-guard` uses `main`. That also gives each one its own env vars
-and its own Neon database, which the kickoff asks for.
+and its own database, which the kickoff asks for.
 
 **4. Cron time.** Vercel cron schedules are UTC only. `0 8 * * *` is 2am Central in winter (CST)
 and **3am** in summer (CDT). Kept at 08:00 UTC as written in the kickoff. On the Hobby plan the
@@ -168,3 +168,8 @@ discount (10%), and the override-per-box switch.
 settings, then exactly as the last scan saw it (from the flag snapshot), because the two can differ.
 
 **28. Prisma 6.** Kept the template's Prisma 6. Prisma 8 is still a release candidate.
+
+**29. Prisma Postgres instead of Neon.** The kickoff named Neon; the production Vercel project was set
+up with Prisma Postgres from the Vercel Marketplace instead (2026-11-17). Its integration names the
+pooled string `DATABASE_URL_POOLED` and the direct one `DATABASE_URL`, so the Prisma schema reads
+those names: the app uses the pooled one, `prisma migrate` uses the direct one.

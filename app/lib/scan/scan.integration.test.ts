@@ -9,8 +9,8 @@ const DB = process.env.TEST_DATABASE_URL;
 if (DB) {
   // Small batches so the test exercises hand-off between invocations.
   process.env.SCAN_BATCH_SIZE = "5";
+  process.env.DATABASE_URL_POOLED = DB;
   process.env.DATABASE_URL = DB;
-  process.env.DATABASE_URL_UNPOOLED = DB;
 }
 
 const RESULT_URL = "https://storage.example/bulk-result.jsonl";

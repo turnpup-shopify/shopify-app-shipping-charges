@@ -1,6 +1,6 @@
-// Freight Margin Guard database. Postgres on Neon.
-//   DATABASE_URL           pooled connection, used by the running app
-//   DATABASE_URL_UNPOOLED  direct connection, used by `prisma migrate`
+// Freight Margin Guard database. Prisma Postgres, added through the Vercel Marketplace.
+//   DATABASE_URL_POOLED  pooled connection, used by the running app
+//   DATABASE_URL         direct connection, used by `prisma migrate`
 
 generator client {
   provider = "prisma-client-js"
@@ -8,8 +8,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL_UNPOOLED")
+  url       = env("DATABASE_URL_POOLED")
+  directUrl = env("DATABASE_URL")
 }
 
 // Shopify sessions (offline and online tokens). Managed by
