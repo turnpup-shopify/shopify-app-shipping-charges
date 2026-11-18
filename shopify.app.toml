@@ -11,8 +11,9 @@ automatically_update_urls_on_dev = true
 include_config_on_deploy = true
 
 [access_scopes]
-# Phase 1 is read only. Do not add any write_ scope here.
-scopes = "read_products,read_inventory,read_reports"
+# Read only, except write_shipping (Freight profile moves only, DECISIONS #32).
+# Do not add any other write_ scope.
+scopes = "read_products,read_inventory,read_reports,write_shipping"
 
 [auth]
 redirect_urls = [ "https://example.com/auth/callback" ]

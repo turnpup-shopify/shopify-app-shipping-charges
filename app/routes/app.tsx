@@ -20,6 +20,7 @@ export default function App() {
         <s-link href="/app/flags">Flag queue</s-link>
         <s-link href="/app/activity">Activity log</s-link>
         <s-link href="/app/data-health">Data health</s-link>
+        <s-link href="/app/shipping">Shipping profiles</s-link>
         <s-link href="/app/price-list">Uttermost price list</s-link>
         <s-link href="/app/settings">Settings</s-link>
       </s-app-nav>

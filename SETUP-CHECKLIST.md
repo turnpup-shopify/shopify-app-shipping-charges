@@ -29,7 +29,8 @@ For each project:
 5. Settings → Environment Variables (Production environment), add:
    - `SHOPIFY_API_KEY` and `SHOPIFY_API_SECRET`: from step 3 below
    - `SHOPIFY_APP_URL`: `https://<this project's domain>`, with no trailing slash
-   - `SCOPES`: `read_products,read_inventory,read_reports`
+   - `SCOPES`: `read_products,read_inventory,read_reports,write_shipping`
+   - `RESEND_API_KEY` and `NOTIFY_EMAIL`: for the daily email (see README)
    - `CRON_SECRET`: a long random string. Generate one with `openssl rand -hex 32`.
 6. Note your plan (Hobby or Pro). Both work: the scan routes use a 300s limit.
 

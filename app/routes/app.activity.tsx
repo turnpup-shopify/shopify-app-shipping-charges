@@ -72,6 +72,14 @@ function describe(type: string, after: unknown, inputs: unknown): string {
       return `Couldn't import the price list (${i.trigger === "CRON" ? "daily check" : "manual"})`;
     case "price_list_source_changed":
       return `New link: ${a.url}`;
+    case "shipping_check_changed":
+      return `${a.toAdd} to add to Freight, ${a.toRemove} to remove, ${a.notPhysical} not marked physical, ${a.rateWarnings} rate warnings`;
+    case "shipping_moved_to_freight":
+      return `${a.count} variants moved into Freight`;
+    case "shipping_removed_from_freight":
+      return `${a.count} variants moved out of Freight`;
+    case "notification_sent":
+      return `${a.subject}`;
     default:
       return "";
   }

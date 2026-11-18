@@ -20,6 +20,10 @@ export const EVENT_TYPES = {
   priceListImported: "price_list_imported",
   priceListCheckFailed: "price_list_check_failed",
   priceListSourceChanged: "price_list_source_changed",
+  shippingCheckChanged: "shipping_check_changed",
+  shippingMovedToFreight: "shipping_moved_to_freight",
+  shippingRemovedFromFreight: "shipping_removed_from_freight",
+  notificationSent: "notification_sent",
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];

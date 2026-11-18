@@ -190,3 +190,19 @@ screen showed "404 Not Found" (the Dashboard and the Uttermost price list both d
 webhook routes, which the screens never link to, export `config`. `vercel.json` sets `"fluid": true`,
 which gives every function 300 seconds by default, so screens still have time for slow work.
 `app/routes.test.ts` enforces this.
+
+**32. `write_shipping` for one-click Freight profile fixes, and a daily email.** Added 2026-11-18 at
+the owner's request, after the first bulk move of 438 variants into the Freight profile by hand.
+- A daily cron (`/api/cron/daily`, 12:00 UTC) checks the Uttermost price list (Dropbox answers
+  304 Not Modified when the file is unchanged, so nothing is downloaded) and compares every
+  variant's Shipping Method with the Freight profile. Each check is fingerprinted; a check with
+  the same fingerprint as the last one only updates `last_seen_at`. One email goes out through
+  Resend only when something changed. The same unresolved problem is not emailed again.
+- The Shipping profiles screen shows what's out of step and has **Move N to Freight** and
+  **Move N out of Freight** buttons (Admins and Approvers). They re-read the live state first,
+  move exactly what's still out of step, and write an audit row listing every variant.
+- This is the app's only write to Shopify and the reason for `write_shipping`. The app never moves
+  products in or out of the Shopify Collective profile, and never touches rates.
+- Variants of Oversize or Motor Freight products marked "not a physical product" are reported, not
+  moved: Shopify can't put them in a profile and charges them no shipping.
+- The recipient is the `NOTIFY_EMAIL` env var, so no address is in the code.

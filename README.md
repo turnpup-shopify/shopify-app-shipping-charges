@@ -3,7 +3,9 @@
 An embedded Shopify app for HTGT Furniture. It finds products that lose money once freight is paid,
 and shows the math in plain words.
 
-**Phase 1 is read only.** The app's scopes are `read_products`, `read_inventory` and `read_reports`.
+**Phase 1 is read only, with one exception.** The app's scopes are `read_products`, `read_inventory`,
+`read_reports` and `write_shipping`. `write_shipping` is used only by the Shipping profiles screen, to
+move products in or out of the Freight shipping profile when someone clicks a button.
 Nothing in the code writes to products, prices, tags, shipping or channels. Suggested fixes are
 suggestions only.
 
@@ -20,6 +22,7 @@ suggestions only.
 | Activity log | Newest first. Filter by person, product, event and date. Export to CSV |
 | Settings | Every number in the freight model. Admin only, a reason is required, and it shows who changed each setting last. Also team roles |
 | Data health | Missing metafield definitions, and variants missing cost, dimensions, price or MAP |
+| Shipping profiles | Compares each product's Shipping Method with the Freight shipping profile. Lists what's out of step, flags gaps in the Freight rates, and has one-click **Move to Freight** / **Move out of Freight** buttons |
 | Uttermost price list | The latest Uttermost price list from Dropbox: search and filter every item, see past versions, **Check for new version**. Admins set the Dropbox file link |
 
 Every number can be clicked to show how it was worked out. The UI is built only from Polaris web
@@ -59,10 +62,14 @@ See [`.env.example`](.env.example).
 | --- | --- |
 | `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET` | The app's Client ID and secret in the Dev Dashboard |
 | `SHOPIFY_APP_URL` | The environment's fixed domain, `https://…`, with no trailing slash |
-| `SCOPES` | `read_products,read_inventory,read_reports` |
+| `SCOPES` | `read_products,read_inventory,read_reports,write_shipping` |
 | `DATABASE_URL_POOLED` | Prisma Postgres **pooled** connection string. The app uses it at runtime. Added by the Vercel Prisma Postgres integration |
 | `DATABASE_URL` | Prisma Postgres **direct** connection string. `prisma migrate` uses it. Added by the integration |
 | `CRON_SECRET` | A long random string. Vercel Cron sends it automatically; it also protects `/api/scan/continue` |
+| `RESEND_API_KEY` | From resend.com. Without it the daily email is skipped |
+| `NOTIFY_EMAIL` | Who gets the daily email, comma separated |
+| `NOTIFY_FROM` | Optional sender. Default `onboarding@resend.dev`, which only delivers to the Resend account's own address |
+| `SHOPIFY_APP_HANDLE` | Optional, default `freight-margin-guard`. Used for links in emails |
 | `SCAN_TIME_BUDGET_MS` | Optional, default `240000`. Keep it about 60s under the 300s function limit |
 
 ## Local setup

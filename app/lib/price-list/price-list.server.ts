@@ -42,12 +42,23 @@ export async function savePriceListUrl(shop: string, actor: Actor, url: string) 
   });
 }
 
-async function download(url: string): Promise<{ bytes: Uint8Array; etag: string | null }> {
+/**
+ * Downloads the file. With `knownEtag`, Dropbox answers 304 Not Modified when
+ * the file hasn't changed, so an unchanged day downloads nothing.
+ */
+async function download(
+  url: string,
+  knownEtag: string | null,
+): Promise<{ notModified: true } | { notModified: false; bytes: Uint8Array; etag: string | null }> {
   const res = await fetch(toDownloadUrl(url), {
     redirect: "follow",
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; FreightMarginGuard/1.0)" },
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; FreightMarginGuard/1.0)",
+      ...(knownEtag ? { "If-None-Match": knownEtag } : {}),
+    },
     signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
   });
+  if (res.status === 304) return { notModified: true };
   if (!res.ok) throw new Error(`Dropbox answered ${res.status} ${res.statusText}.`);
   const bytes = new Uint8Array(await res.arrayBuffer());
   if (!looksLikeXlsx(bytes)) {
@@ -55,7 +66,7 @@ async function download(url: string): Promise<{ bytes: Uint8Array; etag: string 
       "Dropbox sent a web page instead of the file. The link may have expired or been turned off, or it may point at a folder.",
     );
   }
-  return { bytes, etag: res.headers.get("etag") };
+  return { notModified: false, bytes, etag: res.headers.get("etag") };
 }
 
 async function recordCheck(shop: string, url: string, actor: Actor, status: string, detail: string) {
@@ -82,7 +93,19 @@ async function recordCheck(shop: string, url: string, actor: Actor, status: stri
 export async function checkPriceList(shop: string, trigger: ScanTrigger, actor: Actor): Promise<CheckResult> {
   const url = await priceListUrl(shop);
   try {
-    const { bytes, etag } = await download(url);
+    // Only trust the etag of the newest import that came from this same link.
+    const latest = await prisma.priceListImport.findFirst({
+      where: { shop },
+      orderBy: { importedAt: "desc" },
+      select: { id: true, etag: true, sourceUrl: true },
+    });
+    const knownEtag = latest && latest.sourceUrl === url ? latest.etag : null;
+    const got = await download(url, knownEtag);
+    if (got.notModified) {
+      await recordCheck(shop, url, actor, "unchanged", `Dropbox says the file hasn't changed since version ${latest!.id}.`);
+      return { status: "unchanged", importId: latest!.id };
+    }
+    const { bytes, etag } = got;
     const sha256 = createHash("sha256").update(bytes).digest("hex");
 
     const existing = await prisma.priceListImport.findUnique({ where: { shop_sha256: { shop, sha256 } } });

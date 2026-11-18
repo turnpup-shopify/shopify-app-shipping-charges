@@ -10,8 +10,9 @@ embedded = true
 automatically_update_urls_on_dev = false
 
 [access_scopes]
-# Phase 1 is read only. Do not add any write_ scope here.
-scopes = "read_products,read_inventory,read_reports"
+# Read only, except write_shipping (Freight profile moves only, DECISIONS #32).
+# Do not add any other write_ scope.
+scopes = "read_products,read_inventory,read_reports,write_shipping"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 

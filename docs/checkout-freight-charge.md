@@ -81,7 +81,11 @@ are configurable, with no deploy.
 | Carrier service callback in this app | Needs the `write_shipping` scope (beyond Phase 1). Shopify only allows it on Advanced or higher, the Shopify plan with yearly billing, or a paid add-on via Support. HTGT is on Basic. It would compute the exact rule (whole-cart total, any metafield) if the store upgrades. |
 | Shopify Functions | Delivery customization can only hide, rename or reorder rates. The only functions that set a price are local pickup and pickup point generators, which don't apply. Also, custom apps with functions only run on Shopify Plus. |
 
-## How it fits with Phase 1 (read only)
+## How it fits with Phase 1
+
+**Update 2026-11-18:** the app now checks the Freight profile every morning, emails when it drifts,
+and has one-click buttons on the Shipping profiles screen to fix it. That needed `write_shipping`
+(DECISIONS #32). The text below is the original plan.
 
 The app writes nothing. Shipping rates and profile membership are set by hand in the admin.
 

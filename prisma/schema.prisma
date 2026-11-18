@@ -276,5 +276,30 @@ model PriceListItem {
   @@map("price_list_item")
 }
 
+// Result of comparing products' Shipping Method metafield with the Freight
+// shipping profile. A new row only when the state changes; an unchanged
+// nightly check just bumps last_seen_at.
+model ShippingCheck {
+  id               Int         @id @default(autoincrement())
+  shop             String
+  checkedAt        DateTime    @default(now()) @map("checked_at")
+  lastSeenAt       DateTime    @default(now()) @map("last_seen_at")
+  trigger          ScanTrigger
+  triggeredById    String      @map("triggered_by_id")
+  triggeredByName  String      @map("triggered_by_name")
+  fingerprint      String
+  freightProfileId String?     @map("freight_profile_id")
+  counts           Json
+  toAdd            Json        @map("to_add")
+  toRemove         Json        @map("to_remove")
+  notPhysical      Json        @map("not_physical")
+  protectedProfile Json        @map("protected_profile")
+  rateWarnings     String[]    @map("rate_warnings")
+  notifiedAt       DateTime?   @map("notified_at")
+
+  @@index([shop, checkedAt])
+  @@map("shipping_check")
+}
+
 // Phase 2 will add `proposal` and `change` tables here, linked to flag and
 // audit_log by id. Nothing in Phase 1 depends on them.
