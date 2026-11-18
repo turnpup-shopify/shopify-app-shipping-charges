@@ -7,6 +7,9 @@ export const EVENT_LABELS: Record<string, string> = {
   settings_changed: "Settings changed",
   role_changed: "Role changed",
   staff_added: "Staff member added",
+  price_list_imported: "Price list imported",
+  price_list_check_failed: "Price list check failed",
+  price_list_source_changed: "Price list link changed",
 };
 
 export const ROLE_LABELS = {

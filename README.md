@@ -20,6 +20,7 @@ suggestions only.
 | Activity log | Newest first. Filter by person, product, event and date. Export to CSV |
 | Settings | Every number in the freight model. Admin only, a reason is required, and it shows who changed each setting last. Also team roles |
 | Data health | Missing metafield definitions, and variants missing cost, dimensions, price or MAP |
+| Uttermost price list | The latest Uttermost price list from Dropbox: search and filter every item, see past versions, **Check for new version**. Admins set the Dropbox file link |
 
 Every number can be clicked to show how it was worked out. The UI is built only from Polaris web
 components, so it follows the admin's light or dark theme.

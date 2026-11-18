@@ -137,29 +137,29 @@ enum Severity {
 }
 
 model Flag {
-  id                  Int      @id @default(autoincrement())
-  scanId              Int      @map("scan_id")
-  productId           String   @map("product_id")
-  variantId           String   @map("variant_id")
-  productTitle        String   @map("product_title")
-  variantTitle        String?  @map("variant_title")
-  imageUrl            String?  @map("image_url")
-  tier                String
+  id                   Int      @id @default(autoincrement())
+  scanId               Int      @map("scan_id")
+  productId            String   @map("product_id")
+  variantId            String   @map("variant_id")
+  productTitle         String   @map("product_title")
+  variantTitle         String?  @map("variant_title")
+  imageUrl             String?  @map("image_url")
+  tier                 String
   // Every input used, plus the receipt lines, so the math can be shown later
   // exactly as it was at scan time.
-  snapshot            Json
-  priceCents          Int      @map("price_cents")
-  unitCostCents       Int      @map("unit_cost_cents")
-  freightCents        Int      @map("freight_cents")
-  landedCostCents     Int      @map("landed_cost_cents")
-  marginPct           Decimal  @map("margin_pct") @db.Decimal(10, 6)
-  marginAtDiscountPct Decimal  @map("margin_at_discount_pct") @db.Decimal(10, 6)
-  severity            Severity
-  suggestedFix        String   @map("suggested_fix")
-  excludeFromDiscounts Boolean @map("exclude_from_discounts")
-  suggestedValueCents Int?     @map("suggested_value_cents")
-  unitsSold30d        Int?     @map("units_sold_30d")
-  createdAt           DateTime @default(now()) @map("created_at")
+  snapshot             Json
+  priceCents           Int      @map("price_cents")
+  unitCostCents        Int      @map("unit_cost_cents")
+  freightCents         Int      @map("freight_cents")
+  landedCostCents      Int      @map("landed_cost_cents")
+  marginPct            Decimal  @map("margin_pct") @db.Decimal(10, 6)
+  marginAtDiscountPct  Decimal  @map("margin_at_discount_pct") @db.Decimal(10, 6)
+  severity             Severity
+  suggestedFix         String   @map("suggested_fix")
+  excludeFromDiscounts Boolean  @map("exclude_from_discounts")
+  suggestedValueCents  Int?     @map("suggested_value_cents")
+  unitsSold30d         Int?     @map("units_sold_30d")
+  createdAt            DateTime @default(now()) @map("created_at")
 
   scan Scan @relation(fields: [scanId], references: [id], onDelete: Cascade)
 
@@ -206,6 +206,74 @@ model AuditLog {
   @@index([shop, actorId])
   @@index([shop, eventType])
   @@map("audit_log")
+}
+
+// Uttermost price list, downloaded from a shared Dropbox file link.
+// One row per shop: the link to check and the result of the last check.
+model PriceListSource {
+  shop            String    @id
+  url             String
+  updatedById     String    @map("updated_by_id")
+  updatedByName   String    @map("updated_by_name")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  lastCheckedAt   DateTime? @map("last_checked_at")
+  // "imported", "unchanged" or "failed", plus a short message.
+  lastCheckStatus String?   @map("last_check_status")
+  lastCheckDetail String?   @map("last_check_detail")
+
+  @@map("price_list_source")
+}
+
+// One row per distinct file version that was imported. A file whose contents
+// match an earlier import (same sha256) is not imported again.
+model PriceListImport {
+  id              Int         @id @default(autoincrement())
+  shop            String
+  sourceUrl       String      @map("source_url")
+  fileName        String      @map("file_name")
+  etag            String?
+  sha256          String
+  byteSize        Int         @map("byte_size")
+  sheetName       String      @map("sheet_name")
+  columns         String[]
+  rowCount        Int         @map("row_count")
+  trigger         ScanTrigger
+  triggeredById   String      @map("triggered_by_id")
+  triggeredByName String      @map("triggered_by_name")
+  importedAt      DateTime    @default(now()) @map("imported_at")
+
+  items PriceListItem[]
+
+  @@unique([shop, sha256])
+  @@index([shop, importedAt])
+  @@map("price_list_import")
+}
+
+// One row per item in an imported price list. The main columns are typed for
+// search and later checks (MAP); `data` keeps every column from the sheet.
+model PriceListItem {
+  id               Int      @id @default(autoincrement())
+  importId         Int      @map("import_id")
+  itemNumber       String   @map("item_number")
+  upc              String?
+  productName      String?  @map("product_name")
+  collection       String?
+  category         String?
+  wholesaleCents   Int?     @map("wholesale_cents")
+  dropShipFeeCents Int?     @map("drop_ship_fee_cents")
+  totalPriceCents  Int?     @map("total_price_cents")
+  mapCents         Int?     @map("map_cents")
+  shipMethod       String?  @map("ship_method")
+  shippingClass    String?  @map("shipping_class")
+  boxSize          String?  @map("box_size")
+  shippingWeight   Decimal? @map("shipping_weight") @db.Decimal(10, 2)
+  data             Json
+
+  priceListImport PriceListImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@unique([importId, itemNumber])
+  @@index([itemNumber])
+  @@map("price_list_item")
 }
 
 // Phase 2 will add `proposal` and `change` tables here, linked to flag and

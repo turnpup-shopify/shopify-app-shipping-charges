@@ -66,6 +66,12 @@ function describe(type: string, after: unknown, inputs: unknown): string {
       return `${a.name} is now ${String(a.role).toLowerCase()}`;
     case "staff_added":
       return `${a.name} added as ${String(a.role).toLowerCase()}`;
+    case "price_list_imported":
+      return `Version ${a.importId}: ${a.fileName}, ${a.rows} items (${i.trigger === "CRON" ? "daily check" : "manual"})`;
+    case "price_list_check_failed":
+      return `Couldn't import the price list (${i.trigger === "CRON" ? "daily check" : "manual"})`;
+    case "price_list_source_changed":
+      return `New link: ${a.url}`;
     default:
       return "";
   }

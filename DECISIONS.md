@@ -173,3 +173,12 @@ settings, then exactly as the last scan saw it (from the flag snapshot), because
 up with Prisma Postgres from the Vercel Marketplace instead (2026-11-17). Its integration names the
 pooled string `DATABASE_URL_POOLED` and the direct one `DATABASE_URL`, so the Prisma schema reads
 those names: the app uses the pooled one, `prisma migrate` uses the direct one.
+
+**30. Uttermost price list from Dropbox.** Added 2026-11-18. The app downloads Uttermost's
+`Uttermost Price List.xlsx` from a shared Dropbox *file* link (not the folder link: a folder link
+returns a web page, not the file), with no Dropbox account or token. A daily cron at 12:00 UTC
+(6am Central) and a **Check for new version** button download the file, compare its sha256 with
+the stored versions, and import it only when it changed. Each import is a version with every column
+kept (typed columns for item number, prices, MAP and shipping, the rest in `data`). The last six
+versions are kept. It writes only to the app's own database, so Phase 1 stays read only. Showing
+the data is all it does for now; MAP checks against Shopify come later.

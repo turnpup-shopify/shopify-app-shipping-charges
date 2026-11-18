@@ -17,6 +17,9 @@ export const EVENT_TYPES = {
   settingsChanged: "settings_changed",
   roleChanged: "role_changed",
   staffAdded: "staff_added",
+  priceListImported: "price_list_imported",
+  priceListCheckFailed: "price_list_check_failed",
+  priceListSourceChanged: "price_list_source_changed",
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
